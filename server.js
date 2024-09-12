@@ -15,7 +15,7 @@ const app = express();
 dotenv.config();
 
 app.use(cors({
-  origin: "https://chatapp-utqs.onrender.com",
+  origin: "*",
   credentials:true
 }))
 
@@ -34,7 +34,7 @@ db.once('open',()=>console.log("Connected to Db"))
 const server = http.createServer(app);
 const io = new Server(server,{
   cors:{
-      origin:'https://chatapp-utqs.onrender.com',
+      origin:'*',
       credentials:true
   }
 });
