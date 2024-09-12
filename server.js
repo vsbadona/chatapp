@@ -47,11 +47,9 @@ io.on("connection", (socket) => {
     socket.join(conversationId);
     console.log(`Client joined conversation: ${conversationId}`);
   });
-  socket.on('sendMessage', async ({ text, userId, conversationId }) => {
+  socket.on('sendMessage', async ({ text, userId, conversationId },req,res) => {
     try {
       const conversation = await Conversation.findById(conversationId);
-      console.log(conversation);
-      
       if (conversation) {
         const newMessage = {
           text: text,
