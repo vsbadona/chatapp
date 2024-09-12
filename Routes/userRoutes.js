@@ -1,12 +1,18 @@
 import express from "express";
-import { makeUser,makeYear,makeMonth,getData,getAllUser } from "../Controller/userController.js";
+import { registerUser,loginUser,createConv, newMsgConv, getConv, getMsg, search, findUser, updateProfile} from "../Controller/userController.js";
+import multer from "multer";
 
 const Routes = express.Router();
+const upload = multer({dest : 'uploads/'});
 
-Routes.post('/make',makeUser)
-Routes.post('/year',makeYear)
-Routes.post('/month',makeMonth);
+Routes.post('/register',registerUser)
+Routes.get('/login',loginUser)
+Routes.post('/update',upload.single('image'),updateProfile)
+Routes.get('/find/:token',findUser)
+Routes.post('/conversations',createConv)
+Routes.post('/conversations/:conversationId/messages',newMsgConv);
+Routes.get('/conversations',getConv)
+Routes.get('/conversations/:conversationId/messages',getMsg)
+Routes.get('/search',search)
 
-Routes.get('/data',getData)
-Routes.get('/alluser',getAllUser)
 export default Routes;

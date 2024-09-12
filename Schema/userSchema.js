@@ -1,19 +1,9 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-    name:String,
-    fathername:String,
-    years:[
-        {
-            year:Number,
-            months:[
-                {
-                    month:String,
-                    rs:Number
-                }
-            ]
-        }
-    ]
+    username:String,
+    password:String,
+    image:String
 })
 
 const User = mongoose.model("User",userSchema);

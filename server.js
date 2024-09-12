@@ -1,61 +1,85 @@
-import express from 'express';
-// import { createServer } from 'http';
-// import { Server } from 'socket.io';
-import cors from 'cors';
+import express from "express";
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs"
+import jwt from "jsonwebtoken"
+import cors from "cors"
 import userRoutes from "./Routes/userRoutes.js"
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import { Server } from "socket.io"
+import http from "http"
+import Message from "./Schema/messageSchema.js";
+import Conversation from "./Schema/conversationSchema.js";
+import dotenv from "dotenv"
+
+
 const app = express();
+dotenv.config();
 
-dotenv.config()
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: "*",
+  credentials:true
+}))
 
+app.use(express.json())
 
 app.use('/',userRoutes)
-const PORT = process.env.PORT || 8000;
+app.use('/uploads', express.static('uploads'));
 
-app.listen(PORT,()=>console.log("Server is Listening on PORT :",PORT));
-
-const URL = "mongodb+srv://Vishal123:Vishal123@cluster0.hwzrbs5.mongodb.net/shivmandir?retryWrites=true&w=majority&appName=Cluster0"
-mongoose.connect(URL);
-
+// Connect to MongoDB
+mongoose.connect('mongodb+srv://Vishal123:Vishal123@cluster0.hwzrbs5.mongodb.net/mern-chat-app?retryWrites=true&w=majority&appName=Cluster0');
 const db = mongoose.connection;
-db.on('error',(err)=>console.log(err))
-db.once('open',()=>console.log("Connected to DB"))
+db.on('error',(err)=>console.log("I have abn error",err))
+db.once('open',()=>console.log("Connected to Db"))
 
 
+const server = http.createServer(app);
+const io = new Server(server,{
+  cors:{
+      origin:'*',
+      credentials:true
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("New client connected");
+
+  // Join conversation room
+  socket.on("joinConversation", (conversationId) => {
+    socket.join(conversationId);
+    console.log(`Client joined conversation: ${conversationId}`);
+  });
+  socket.on('sendMessage', async ({ text, userId, conversationId }) => {
+    try {
+      const conversation = await Conversation.findById(conversationId);
+      if (conversation) {
+        const newMessage = {
+          text: text,
+          user: userId,
+          conversation: conversationId
+        };
+        conversation.messages.push(newMessage);
+        await conversation.save();
+
+        // Emit to all clients in the conversation room
+        io.to(conversationId).emit('newMessage', newMessage);
+      }
+    } catch (error) {
+      console.error("Error sending message: ", error);
+    }
+  });
+
+  // Handle disconnect
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
 
 
+app.use((req, res, next) => {
+  req.io = io;  // Attach io to the request object
+  next();
+});
+const PORT = process.env.PORT || 5000;
+server.listen(PORT,()=>{
+    console.log("Server is listening to PORT:",PORT);
+})
 
-
-// const server = createServer(app);
-// const io = new Server(server, {
-//   cors: {
-//     origin: '*', // allow requests from any origin
-//     credentials: true, // allow credentials (e.g. cookies) to be sent
-//   },
-// });
-
-// app.use(express.static('public'));
-// app.use(cors({
-//   origin: '*', // allow requests from any origin
-//   credentials: true, // allow credentials (e.g. cookies) to be sent
-// }));
-
-// io.on('connection', (socket) => {
-//   console.log('New client connected');
-
-//   socket.on('disconnect', () => {
-//     console.log('Client disconnected');
-//   });
-
-//   socket.on('message', (message) => {
-//     console.log(`Received message: ${message}`);
-//     io.emit('message', message);
-//   });
-// });
-
-// server.listen(3001, () => {
-//   console.log('Server listening on port 3001');
-// });

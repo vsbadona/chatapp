@@ -1,96 +1,217 @@
-import User from "../Schema/userSchema.js";
+// Login Register 
 
-export const makeUser = async(req,res) => {
-    const {username,fathername} = req.body;
+import User from "../Schema/userSchema.js"
+import Conversation from "../Schema/conversationSchema.js"
+import Message from "../Schema/messageSchema.js"
+import bcrypt from "bcryptjs"
+import jwt from "jsonwebtoken"
 
-    try {
-        const existUser = await User.findOne({name:username}) && await User.findOne({name:username}) 
-        if(existUser){
-            return res.json({alert:"User already exist"})
-        }
-        const newUser =await new User({name:username,fathername:fathername})
-        if(newUser){
-            await newUser.save();
-            res.json({success:"User created"})
-        }
-    } catch (error) {
-        res.status(400).json({ message: 'Error while registering', error: error.message })
-    }   
-   
+export const registerUser = async (req, res) => {
+  const { username, password } = req.body;
+  const ifExist = await User.findOne({ username });
+  if (ifExist) {
+    return res.json({ message: "Username already exist" });
+  }
+  const user = new User({ username });
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(password, salt);
+  await user.save();
+  res.json({ success: "User created successfully" });
 }
 
+export const findUser = async(req,res) => {
+  const token = req.params.token;
+  const decoded = jwt.verify(token, 'secretKey');
+  const userId = decoded.userId;
+  if (!userId) return res.json({ message: 'Invalid Token' });
+  const findUser = await User.findById(userId);
+  if (!findUser) return res.json({ message: 'User not found'})
+    res.json(findUser);
+}
 
-export const makeYear = async (req, res) => {
-    const { year, id } = req.body;
-    try {
-        const existUser = await User.findById(id);
-        if (!existUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
+export const loginUser = async (req, res) => {
+  const { username, password } = req.query;
+  if(!username || !password){
+    res.json({message:"Provide all details"})
+  }
+  const user = await User.findOne({ username });
+  if (!user) {
+    return res.json({ message: "User not found" })
+  }
+  const isValid = bcrypt.compare(password, user.password);
+  if (!isValid) {
+    return res.json({ message: "Invalid password" })
+  }
+  const token = jwt.sign({ userId: user._id }, 'secretKey')  //, { expiresIn: '1h' }
+  res.json({ token: token, success: "User logged in successfully" })
+}
 
-        const existYear = existUser.years.find((y) => y.year === year);
+//Update Profile upload image
 
-        if (existYear) {
-            return res.json({ alert: "Year already exist" });
+export const updateProfile = async (req, res) => {
+  const { userId, username} = req.body;
+  
+  let image = ''; // Initialize image variable
+
+  try {
+      const findUser = await User.findById(userId);
+
+      // Check if user exists
+      if (findUser) {
+          // Check if req.file exists
+          if (req.file) {
+              image = req.file.path;
+          }
+
+       if(username == findUser.username){
+           // Update user fields
+          
+             findUser.username = username;
+           findUser.image = image;
+ 
+           // Save updated user document
+           const updatedUser = await findUser.save();
+ 
+           // Return success response
+           return res.json({ success: "Profile updated", data: updatedUser });
+       }else{
+        const checkAvailability = await User.findOne({username})
+        if(checkAvailability){
+          res.json({message:"Username Exists"})
         }else{
-            existUser.years.push({ year: year, months: [] });
-await existUser.save();
-res.json({ message: 'Year created successfully' });
-        }
+          findUser.username = username;
+           findUser.image = image;
+ 
+           // Save updated user document
+           const updatedUser = await findUser.save();
+ 
+           // Return success response
+           return res.json({ success: "Profile updated", data: updatedUser });
+       }
+       }
+          
+      } else {
+          // User not found
+          return res.json({ message: "User not found" });
+      }
+  } catch (error) {
+      // Log error for debugging
+      console.error("Error updating profile:", error);
 
-    } catch (error) {
-        res.status(400).json({ message: 'Error while creating year', error: error.message });
+      // Return error response
+      return res.json({ error: "An error occurred while updating the profile." });
+  }
+};
+
+// Create New Conversation 
+export const createConv = async (req, res) => {
+  const { username, userId } = req.body;
+  if(!username || !userId){
+    res.json({message:"Provide all details"})
+  }
+  try {
+    const user = await User.findOne({ username });
+  if (!user) return res.json({ message: 'User not found' });
+  if(user?._id == userId){
+    res.json({message:"You can't create a conversation with yourself"})
+  }else{
+    
+  const ifConExist = await Conversation.find({
+    users: user._id
+  })
+  if(ifConExist != 0){
+    res.json({message:"Conversation already exists"})
+  }else{
+    const conversation = new Conversation({ users: [user._id,userId],sender:userId});
+    await conversation.save();
+    res.json({ success: 'Conversation created successfully' });
+  }
+  }
+  } catch (error) {
+    res.json({message:error})
+  }
+};
+
+//Get all conversations
+
+export const getConv = async (req, res) => {
+  const { userId } = req.query;
+  if(!userId){
+    res.json({message:"Provide all details"})
+  }
+  const conversations = await Conversation.find({ users: userId }).populate('users').populate('sender').populate('messages');
+  if(conversations){
+    res.json(conversations);
     }
-}
+};
 
-export const makeMonth = async (req, res) => {
-    const { month, userId, yearId, rs } = req.body;
-    try {
-        const existUser = await User.findById(userId);
-        if (!existUser) {
-            return res.json({ alert: "User not found" });
-        }
+// Send new message to selected conversation
+export const newMsgConv = async (req, res) => {
+  const conversationId = req.params.conversationId;
+  const { text, userId } = req.body;
 
-        const existYear = existUser.years.find((y) => y._id.toString() === yearId);
-        if (!existYear) {
-            return res.json({ alert: "Year not found" });
-        }
+  try {
+    // Find the conversation by ID
+    const findConv = await Conversation.findById(conversationId);
 
-        const existMonth = existYear.months.find((m) => m.month === month);
-        if (existMonth) {
-            return res.json({ alert: "Month already exist" });
-        }
+    if (findConv) {
+      // Create a new message object
+      const newMessage = {
+        text: text,
+        user: userId,
+        conversation: conversationId
+      };
 
-        existYear.months.push({ month: month, rs: rs });
-        await existUser.save();
-        res.json({ message: "Month created successfully" });
-    } catch (error) {
-        res.status(400).json({ message: 'Error while creating month', error: error.message });
+      // Push the new message into the conversation's messages array
+      findConv.messages.push(newMessage);
+
+      // Save the updated conversation
+      await findConv.save();
+      req.io.to(conversationId).emit("newMessage", newMessage);
+      res.status(200).json({
+        success:  "Message added successfully",
+        conversation: findConv,
+      });
+    } else {
+      res.status(404).json({ message: "Conversation not found" });
     }
-}
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get all messages from selected conversations
+
+export const getMsg = async (req, res) => {
+  const conversationId = req.params.conversationId;
+
+  try {
+    const findConv = await Conversation.findById(conversationId)
+   
+
+    if (findConv) {
+      res.status(200).json({
+        success: "Messages retrieved successfully",
+        messages: findConv.messages,
+      });
+    } else {
+      res.status(404).json({ message: "Conversation not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 
+//Search user by username
 
-//Get User Data
-
-export const getData = async(req,res) => {
-    const {id} = req.query;
-
-    const findUse = await User.findById(id);
-    if(!findUse){
-        return res.json({alert: "User not found"})
-        }
-        res.json(findUse);
-}
-
-
-export const getAllUser = async (req, res) => {
-    const users = await User.find();
-    const fetchall = users.map((user) => {
-        return {
-            name: user.name,
-            id: user._id
-        }
-    })
-    res.json(fetchall);
-}
+export const search = async (req, res) => {
+  const { query } = req.query;
+  if(!query){
+    res.json({message:"Provide all details"})
+  }
+  const users = await User.find({ username: new RegExp(query, 'i') });
+  res.json(users);
+};
