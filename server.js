@@ -60,6 +60,7 @@ io.on("connection", (socket) => {
         await conversation.save();
 
         // Emit to all clients in the conversation room
+        ack('Message processed successfully');
         io.to(conversationId).emit('newMessage', newMessage);
       }
     } catch (error) {
