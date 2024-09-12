@@ -15,7 +15,7 @@ const app = express();
 dotenv.config();
 
 app.use(cors({
-  origin: "*",
+  origin: "https://chatapp-utqs.onrender.com",
   credentials:true
 }))
 
@@ -34,7 +34,7 @@ db.once('open',()=>console.log("Connected to Db"))
 const server = http.createServer(app);
 const io = new Server(server,{
   cors:{
-      origin:'*',
+      origin:'https://chatapp-utqs.onrender.com',
       credentials:true
   }
 });
@@ -50,6 +50,8 @@ io.on("connection", (socket) => {
   socket.on('sendMessage', async ({ text, userId, conversationId }) => {
     try {
       const conversation = await Conversation.findById(conversationId);
+      console.log(conversation);
+      
       if (conversation) {
         const newMessage = {
           text: text,
