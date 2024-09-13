@@ -49,25 +49,27 @@ io.on("connection", (socket) => {
     socket.join(conversationId);
     console.log(`Client joined conversation: ${conversationId}`);
   });
-  socket.on('sendMessage', async ({ text, userId, conversationId },req,res) => {
-    try {
-      const conversation = await Conversation.findById(conversationId);
-      if (conversation) {
-        const newMessage = {
-          text: text,
-          user: userId,
-          conversation: conversationId
-        };
-        conversation.messages.push(newMessage);
-        await conversation.save();
+  socket.on('sendMessage', async ( text ) => {
+    // try {
+    //   const conversation = await Conversation.findById(conversationId);
+    //   if (conversation) {
+    //     const newMessage = {
+    //       text: text,
+    //       user: userId,
+    //       conversation: conversationId
+    //     };
+    //     conversation.messages.push(newMessage);
+    //     await conversation.save();
 
-        // Emit to all clients in the conversation room
-        ack('Message processed successfully');
-        io.to(conversationId).emit('newMessage', newMessage);
-      }
-    } catch (error) {
-      console.error("Error sending message: ", error);
-    }
+    //     // Emit to all clients in the conversation room
+    //     ack('Message processed successfully');
+    //     io.to(conversationId).emit('newMessage', newMessage);
+    //   }
+    // } catch (error) {
+    //   console.error("Error sending message: ", error);
+    // }
+    console.log(text);
+    
   });
 
   // Handle disconnect
