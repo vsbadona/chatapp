@@ -55,8 +55,6 @@ io.on("connection", (socket) => {
           conversation: conversationId
         };
         conversation.messages.push(newMessage);
-        console.log(newMessage);
-        
         await conversation.save();
 
         io.to(conversationId).emit('newMessage', newMessage);

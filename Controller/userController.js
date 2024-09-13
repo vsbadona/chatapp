@@ -43,7 +43,7 @@ export const loginUser = async (req, res) => {
     return res.json({ message: "Invalid password" })
   }
   const token = jwt.sign({ userId: user._id }, 'secretKey')  //, { expiresIn: '1h' }
-  res.json({ token: token, success: "User logged in successfully" })
+  res.json({ token: token, success: "User logged in successfully",user:user })
 }
 
 //Update Profile upload image
