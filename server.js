@@ -32,11 +32,13 @@ db.once('open',()=>console.log("Connected to Db"))
 
 
 const server = http.createServer(app);
-const io = new Server(server,{
-  cors:{
-      origin:'*',
-      credentials:true
-  }
+const io = new Server(server, {
+  cors: {
+    origin: '*',  // Adjust CORS as needed
+    methods: ['GET', 'POST'],
+    credentials:true,
+  },
+  transports: ['websocket'],  // Ensure WebSocket support
 });
 
 io.on("connection", (socket) => {
