@@ -44,12 +44,9 @@ io.on("connection", (socket) => {
   console.log("New client connected");
 
   // Join conversation room
-  socket.on("joinConversation", (conversationId) => {
-    socket.join(conversationId);
-    console.log(`Client joined conversation: ${conversationId}`);
-  });
   socket.on('sendMessage', async ({ text, userId, conversationId }) => {
     try {
+      
       const conversation = await Conversation.findById(conversationId);
       if (conversation) {
         const newMessage = {
@@ -58,6 +55,8 @@ io.on("connection", (socket) => {
           conversation: conversationId
         };
         conversation.messages.push(newMessage);
+        console.log(newMessage);
+        
         await conversation.save();
 
         io.to(conversationId).emit('newMessage', newMessage);
@@ -65,6 +64,10 @@ io.on("connection", (socket) => {
     } catch (error) {
       console.error("Error sending message: ", error);
     }
+  });
+  socket.on("joinConversation", (conversationId) => {
+    socket.join(conversationId);
+    console.log(`Client joined conversation: ${conversationId}`);
   });
 
   // Handle disconnect
