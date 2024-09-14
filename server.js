@@ -9,6 +9,7 @@ import http from "http"
 import Message from "./Schema/messageSchema.js";
 import Conversation from "./Schema/conversationSchema.js";
 import dotenv from "dotenv"
+import User from "./Schema/userSchema.js";
 
 
 const app = express();
@@ -63,6 +64,11 @@ io.on("connection", (socket) => {
       console.error("Error sending message: ", error);
     }
   });
+
+  socket.on('searchUser',async({query,userId}) => {
+    const users = await User.find({ username: new RegExp(query, 'i') });
+    io.emit('searched', users);
+  })
   socket.on("joinConversation", (conversationId) => {
     socket.join(conversationId);
     console.log(`Client joined conversation: ${conversationId}`);
