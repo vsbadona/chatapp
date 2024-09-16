@@ -106,44 +106,96 @@ export const updateProfile = async (req, res) => {
 // Create New Conversation 
 export const createConv = async (req, res) => {
   const { username, userId } = req.body;
-  if(!username || !userId){
-    res.json({message:"Provide all details"})
+
+  if (!username || !userId) {
+    return res.json({ message: "Provide all details" });
   }
+
   try {
+    // Find the user by username
     const user = await User.findOne({ username });
-  if (!user) return res.json({ message: 'User not found' });
-  if(user?._id == userId){
-    res.json({message:"You can't create a conversation with yourself"})
-  }else{
-    
-  const ifConExist = await Conversation.find({
-    users: user._id
-  })
-  if(ifConExist != 0){
-    res.json({message:"Conversation already exists"})
-  }else{
-    const conversation = new Conversation({ users: [user._id,userId],sender:userId});
+    if (!user) return res.json({ message: 'User not found' });
+
+    // Ensure that the user is not creating a conversation with themselves
+    if (user._id.toString() === userId) {
+      return res.json({ message: "You can't create a conversation with yourself" });
+    }
+
+    // Check if a conversation already exists between the two users
+    const ifConExist = await Conversation.findOne({
+      participants: { $all: [user._id, userId] }
+    });
+
+    if (ifConExist) {
+      return res.json({ message: "Conversation already exists" });
+    }
+
+    // Create a new conversation
+    const conversation = new Conversation({
+      participants: [user._id, userId],
+    });
+
+    // Save the conversation
     await conversation.save();
-    res.json({ success: 'Conversation created successfully' });
-  }
-  }
+
+    // Add conversation to both users' conversation lists
+    const userInitiator = await User.findById(user._id);
+    const userRecipient = await User.findById(userId);
+
+    if (userInitiator && userRecipient) {
+      userInitiator.conversations = [...userInitiator.conversations, conversation._id];
+      userRecipient.conversations = [...userRecipient.conversations, conversation._id];
+
+      await userInitiator.save();
+      await userRecipient.save();
+
+      res.json({ success: 'Conversation created successfully', conversation });
+    } else {
+      res.json({ message: "Error updating users' conversation list" });
+    }
+
   } catch (error) {
-    res.json({message:error})
+    res.json({ message: error.message });
   }
 };
+
+
+
 
 //Get all conversations
 
 export const getConv = async (req, res) => {
   const { userId } = req.query;
-  if(!userId){
-    res.json({message:"Provide all details"})
+
+  if (!userId) {
+    return res.json({ message: "Provide all details" });
   }
-  const conversations = await Conversation.find({ users: userId }).populate('users').populate('sender').populate('messages');
-  if(conversations){
-    res.json(conversations);
+
+  try {
+    // Find the user by ID and populate their conversations
+    const user = await User.findById(userId).populate({
+      path: 'conversations',
+      populate: {
+        path: 'participants',  // Populate the users field inside each conversation
+        select: 'username image'  // Only select relevant user fields
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    if (user.conversations.length > 0) {
+      res.json(user.conversations);
+    } else {
+      res.json({ message: "No conversations found" });
+    }
+
+  } catch (error) {
+    res.json({ message: error.message });
+  }
 };
+
 
 // Send new message to selected conversation
 export const newMsgConv = async (req, res) => {
@@ -151,25 +203,24 @@ export const newMsgConv = async (req, res) => {
   const { text, userId } = req.body;
 
   try {
-    // Find the conversation by ID
     const findConv = await Conversation.findById(conversationId);
 
     if (findConv) {
-      // Create a new message object
       const newMessage = {
         text: text,
         user: userId,
+        status: "delivered",
         conversation: conversationId
       };
 
-      // Push the new message into the conversation's messages array
       findConv.messages.push(newMessage);
+      findConv.lastMessage = newMessage._id;  // Update last message
 
-      // Save the updated conversation
       await findConv.save();
       req.io.to(conversationId).emit("newMessage", newMessage);
+
       res.status(200).json({
-        success:  "Message added successfully",
+        success: "Message added successfully",
         conversation: findConv,
       });
     } else {
@@ -181,14 +232,21 @@ export const newMsgConv = async (req, res) => {
   }
 };
 
+
 // Get all messages from selected conversations
+
+
+
 
 export const getMsg = async (req, res) => {
   const conversationId = req.params.conversationId;
 
   try {
     const findConv = await Conversation.findById(conversationId)
-   
+      .populate({
+        path: 'messages',
+        populate: { path: 'sender', select: 'username image' }  // Populate message sender
+      });
 
     if (findConv) {
       res.status(200).json({
@@ -199,10 +257,10 @@ export const getMsg = async (req, res) => {
       res.status(404).json({ message: "Conversation not found" });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message });
   }
 };
+
 
 
 //Search user by username
