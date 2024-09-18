@@ -30,6 +30,7 @@ export const findUser = async(req,res) => {
 }
 
 export const loginUser = async (req, res) => {
+try {
   const { username, password } = req.query;
   if(!username || !password){
     res.json({message:"Provide all details"})
@@ -38,12 +39,15 @@ export const loginUser = async (req, res) => {
   if (!user) {
     return res.json({ message: "User not found" })
   }
-  const isValid = bcrypt.compare(password, user.password);
+  const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) {
     return res.json({ message: "Invalid password" })
   }
   const token = jwt.sign({ userId: user._id }, 'secretKey')  //, { expiresIn: '1h' }
   res.json({ token: token, success: "User logged in successfully",user:user })
+} catch (error) {
+  res.json({error:error.message})
+}
 }
 
 //Update Profile upload image
@@ -104,97 +108,99 @@ export const updateProfile = async (req, res) => {
 };
 
 // Create New Conversation 
-export const createConv = async (req, res) => {
-  const { username, userId } = req.body;
+// export const createConv = async (req, res) => {
+//   const { username, userId } = req.body;
 
-  if (!username || !userId) {
-    return res.json({ message: "Provide all details" });
-  }
+//   if (!username || !userId) {
+//     return res.json({ message: "Provide all details" });
+//   }
 
-  try {
-    // Find the user by username
-    const user = await User.findOne({ username });
-    if (!user) return res.json({ message: 'User not found' });
+//   try {
+//     // Find the user by username
+//     const user = await User.findOne({ username });
+//     if (!user) return res.json({ message: 'User not found' });
 
-    // Ensure that the user is not creating a conversation with themselves
-    if (user._id.toString() === userId) {
-      return res.json({ message: "You can't create a conversation with yourself" });
-    }
+//     // Ensure that the user is not creating a conversation with themselves
+//     if (user._id.toString() === userId) {
+//       return res.json({ message: "You can't create a conversation with yourself" });
+//     }
 
-    // Check if a conversation already exists between the two users
-    const ifConExist = await Conversation.findOne({
-      participants: { $all: [user._id, userId] }
-    });
+//     // Check if a conversation already exists between the two users
+//     const ifConExist = await Conversation.findOne({
+//       participants: { $all: [user._id, userId] }
+//     });
 
-    if (ifConExist) {
-      return res.json({ message: "Conversation already exists" });
-    }
+//     if (ifConExist) {
+//       return res.json({ message: "Conversation already exists" });
+//     }
 
-    // Create a new conversation
-    const conversation = new Conversation({
-      participants: [user._id, userId],
-    });
+//     // Create a new conversation
+//     const conversation = new Conversation({
+//       participants: [user._id, userId],
+//     });
 
-    // Save the conversation
-    await conversation.save();
+//     // Save the conversation
+//     await conversation.save();
 
-    // Add conversation to both users' conversation lists
-    const userInitiator = await User.findById(user._id);
-    const userRecipient = await User.findById(userId);
+//     // Add conversation to both users' conversation lists
+//     const userInitiator = await User.findById(user._id);
+//     const userRecipient = await User.findById(userId);
 
-    if (userInitiator && userRecipient) {
-      userInitiator.conversations = [...userInitiator.conversations, conversation._id];
-      userRecipient.conversations = [...userRecipient.conversations, conversation._id];
+//     if (userInitiator && userRecipient) {
+//       userInitiator.conversations = [...userInitiator.conversations, conversation._id];
+//       userInitiator.conversations.user = user._id;
+//       userRecipient.conversations = [...userRecipient.conversations, conversation._id];
+//       userRecipient.conversations.user = userId;
 
-      await userInitiator.save();
-      await userRecipient.save();
+//       await userInitiator.save();
+//       await userRecipient.save();
 
-      res.json({ success: 'Conversation created successfully', conversation });
-    } else {
-      res.json({ message: "Error updating users' conversation list" });
-    }
+//       res.json({ success: 'Conversation created successfully',conversation: conversation });
+//     } else {
+//       res.json({ message: "Error updating users' conversation list" });
+//     }
 
-  } catch (error) {
-    res.json({ message: error.message });
-  }
-};
+//   } catch (error) {
+//     res.json({ message: error.message });
+//   }
+// };
 
 
 
 
 //Get all conversations
 
-export const getConv = async (req, res) => {
-  const { userId } = req.query;
+// export const getConv = async (req, res) => {
+//   const { userId } = req.query;
 
-  if (!userId) {
-    return res.json({ message: "Provide all details" });
-  }
+//   if (!userId) {
+//     return res.json({ message: "Provide all details" });
+//   }
 
-  try {
-    // Find the user by ID and populate their conversations
-    const user = await User.findById(userId).populate({
-      path: 'conversations',
-      populate: {
-        path: 'participants',  // Populate the users field inside each conversation
-        select: 'username image'  // Only select relevant user fields
-      }
-    });
+//   try {
+//     // Find the user by ID and populate their conversations
+//     const user = await User.findById(userId).populate({
+//       path: 'conversations',
+//       populate: {
+//         path: 'participants',  // Populate the users field inside each conversation
+//         select: 'username image'  // Only select relevant user fields
+//       }
+//     });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
 
-    if (user.conversations.length > 0) {
-      res.json(user.conversations);
-    } else {
-      res.json({ message: "No conversations found" });
-    }
+//     if (user.conversations.length > 0) {
+//       res.json(user.conversations);
+//     } else {
+//       res.json({ message: "No conversations found" });
+//     }
 
-  } catch (error) {
-    res.json({ message: error.message });
-  }
-};
+//   } catch (error) {
+//     res.json({ message: error.message });
+//   }
+// };
 
 
 // Send new message to selected conversation

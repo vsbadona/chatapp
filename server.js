@@ -53,24 +53,21 @@ socket.on('sendMessage', async ({ text, userId, conversationId, status }) => {
     
     if (conversation) {
       // Create a new message
-      const newMessage = new Message({
+      const newMessage = {
         text,
-        sender: userId,
+        reciever: userId,
         status,
         conversation: conversationId
-      });
+      };
 
-      // Save the message
-      await newMessage.save();
+      // // Save the message
+      // await newMessage.save();
 
       // Push the message to the conversation
-      conversation.messages.push(newMessage._id);
+      conversation.messages.push(newMessage);
       await conversation.save();
 
-      // Populate message with sender details before emitting
-      const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'username image');
-
-      io.to(conversationId).emit('newMessage', populatedMessage);
+      io.to(conversationId).emit('newMessage', newMessage);
     }
   } catch (error) {
     console.error("Error sending message: ", error);
@@ -88,8 +85,7 @@ socket.on('fetchat', async ({ conversationId }) => {
   try {
     const conversation = await Conversation.findById(conversationId)
       .populate({
-        path: 'messages',
-        populate: { path: 'sender', select: 'username image' }  // Populate sender info
+        path: 'messages'  // Populate sender info
       });
 
     if (conversation) {
@@ -115,43 +111,43 @@ socket.on('fetchat', async ({ conversationId }) => {
       return socket.emit('alert', { message: 'Invalid Conversation' });
     }
 
-    // Find the specific message to update
-    const message = await Message.findById(messageId);
+    // Find the specific message in the messages array
+    const message = conversation.messages.find(msg => String(msg._id) === String(messageId));
 
     if (!message) {
-      return socket.emit('alert', { message: 'Message Not Found' });
+      return ;
     }
 
-    // Ensure the message belongs to the user
-    if (String(message.sender) == userId) {
+    // Ensure the user trying to update is not the sender (only receiver can mark it as read)
+    if (String(message.reciever) !== String(userId)) {
       return socket.emit('alert', { message: "You don't have permission to update this message" });
     }
 
-    // Update the status of the specific message
+    // Update the status of the specific message to 'read'
     message.status = status;
-    await message.save();
 
-    // Find all previous messages in the same conversation with status 'delivered'
-    const allMessages = await Message.find({ conversation: conversationId });
-
-    // Update the status of messages with 'delivered' status to 'read'
-    for (let msg of allMessages) {
-      if (msg.status === 'delivered') {
+    // Find all previous "delivered" messages for the same user and mark them as "read"
+    conversation.messages.forEach(msg => {
+      if (msg.status === 'delivered' && String(msg.reciever) === String(userId)) {
         msg.status = 'read';
-        await msg.save(); // Save each message after updating
       }
-    }
+    });
+
+    // Save the conversation only once after updating all messages
+    await conversation.save();
 
     // Emit the success event with the updated message
-    socket.emit('successMessage', { message });
+    socket.emit('successMessage', { messageId: message._id, status: message.status });
 
     // Notify all participants in the conversation that message statuses have been updated
-    io.to(conversationId).emit('messageStatusUpdated', { message });
+    io.to(conversationId).emit('messageStatusUpdated', { messageId: message._id, status: message.status });
 
   } catch (error) {
     socket.emit('alert', { message: error.message });
   }
 });
+
+
 
 
 
@@ -188,6 +184,98 @@ socket.on('countDeliveredMessagesForUser', async ({ userId }) => {
     socket.join(conversationId);
     console.log(`Client joined conversation: ${conversationId}`);
   });
+
+  socket.on('createcon', async({username,userId}) => {
+    if (!username || !userId) {
+      socket.emit('alert', { message: "Provide all details" });
+    }
+  
+    try {
+      // Find the user by username
+      const user = await User.findOne({ username });
+      if (!user) socket.emit('alert',{ message: 'User not found' });
+  
+      // Ensure that the user is not creating a conversation with themselves
+      if (user._id.toString() === userId) {
+        return socket.emit('alert',{ message: "You can't create a conversation with yourself" });
+      }
+  
+      // Check if a conversation already exists between the two users
+      const ifConExist = await Conversation.findOne({
+        participants: { $all: [user._id, userId] }
+      });
+  
+      if (ifConExist) {
+       return socket.emit('alert',{ message: "Conversation already exists" });
+      }
+  
+      // Create a new conversation
+      const conversation = new Conversation({
+        participants: [user._id, userId],
+      });
+  
+      // Save the conversation
+      await conversation.save();
+  
+      // Add conversation to both users' conversation lists
+      const userInitiator = await User.findById(user._id);
+      const userRecipient = await User.findById(userId);
+  
+      if (userInitiator && userRecipient) {
+        userInitiator.conversations = [...userInitiator.conversations, conversation._id];
+        userInitiator.conversations.user = user._id;
+        userRecipient.conversations = [...userRecipient.conversations, conversation._id];
+        userRecipient.conversations.user = userId;
+  
+        await userInitiator.save();
+        await userRecipient.save();
+        const populatedConversation = await conversation.populate('participants', 'username image');
+
+      // Emit the conversation with populated participants
+      socket.emit('getConv', {
+        success: 'Conversation created successfully',
+        conversation: populatedConversation,
+      });
+      } else {
+      return socket.emit('alert',{ message: "Error updating users' conversation list" });
+      }
+  
+    } catch (error) {
+     socket.emit('error',{ message: error.message });
+    }
+  })
+
+
+  socket.on('getAllCon',async({userId}) =>{
+  
+  if (!userId) {
+    return socket.emit('alert',{ message: "Provide all details" });
+  }
+
+  try {
+    // Find the user by ID and populate their conversations
+    const user = await User.findById(userId).populate({
+      path: 'conversations',
+      populate: {
+        path: 'participants',  // Populate the users field inside each conversation
+        select: 'username image'  // Only select relevant user fields
+      }
+    });
+
+    if (!user) {
+      return socket.emit('alert',{ message: "User not found" });
+    }
+
+    if (user.conversations.length > 0) {
+      socket.emit('getAllCon',{conversations:user.conversations});
+    } else {
+      socket.emit('alert',{ message: "No conversations found" });
+    }
+
+  } catch (error) {
+    socket.emit('alert',{ message: error.message });
+  }
+  })
 
   // Handle disconnect
   socket.on("disconnect", () => {
