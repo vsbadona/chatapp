@@ -288,7 +288,7 @@ app.use((req, res, next) => {
   req.io = io;  // Attach io to the request object
   next();
 });
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT,()=>{
     console.log("Server is listening to PORT:",PORT);
 })
