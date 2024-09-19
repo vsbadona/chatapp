@@ -7,16 +7,28 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 
 export const registerUser = async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
+    let image =  ' ';
+    if(!username || !password){
+      return res.json({message: "All fields are required"})
+    }
   const ifExist = await User.findOne({ username });
+  if (req.file) {
+    image = req.file.path;
+}
   if (ifExist) {
     return res.json({ message: "Username already exist" });
   }
   const user = new User({ username });
   const salt = await bcrypt.genSalt(10);
   user.password = await bcrypt.hash(password, salt);
+  user.image = image;
   await user.save();
   res.json({ success: "User created successfully" });
+  } catch (error) {
+    res.json({alert:"Internal Server Error"})
+  }
 }
 
 export const findUser = async(req,res) => {
