@@ -6,17 +6,19 @@ import dotenv from "dotenv";
 import http from "http";
 import userRoutes from "./Routes/userRoutes.js"; // Routes
 import { initializeSocket } from './socket.js'; // Import socket logic
-
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from 'path';
 dotenv.config();
 
 const app = express();
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 // Middleware
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 app.use('/', userRoutes);
-app.use('/uploads', express.static('uploads'));
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Connect to MongoDB
 mongoose.connect("mongodb+srv://Vishal123:Vishal123@cluster0.hwzrbs5.mongodb.net/mern-chat-app?retryWrites=true&w=majority&appName=Cluster0");
 
