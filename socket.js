@@ -15,7 +15,16 @@ export const initializeSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    console.log("New client connected");
+    
+  socket.on('getConn',(data) => {
+    const userId = data.userId;
+    if (userId) {
+      socket.join(userId);  // Join the user's room
+      console.log(`User with ID: ${userId} has joined their room`);
+    } else {
+      console.log("No userId provided in getConn event");
+    }
+  })
 
     socket.on('sendMessage', async ({ text, userId, conversationId, status }) => {
       try {
@@ -94,31 +103,38 @@ export const initializeSocket = (server) => {
     });
 
     socket.on('createcon', async ({ username, userId }) => {
-      try {
-        const user = await User.findOne({ username });
-        if (!user || user._id.toString() === userId) return;
-
-        const ifConExist = await Conversation.findOne({ participants: { $all: [user._id, userId] } });
-        if (ifConExist) return;
-
-        const conversation = new Conversation({ participants: [user._id, userId] });
-        await conversation.save();
-        const userInitiator = await User.findById(user._id);
-        const userRecipient = await User.findById(userId);
-
-        userInitiator.conversations.push(conversation._id);
-        userRecipient.conversations.push(conversation._id);
-        await userInitiator.save();
-        await userRecipient.save();
-
-        const populatedConversation = await conversation.populate('participants', 'username image');
-        io.to(user._id.toString()).emit('newConversation', { conversation: populatedConversation });
-        io.to(userId).emit('newConversation', { conversation: populatedConversation });
-        socket.emit('getConv', { success: 'Conversation created successfully', conversation: populatedConversation });
-      } catch (error) {
-        socket.emit('error', { message: error.message });
-      }
-    });
+        try {
+          const user = await User.findOne({ username });
+          if (!user || user._id.toString() === userId) return;
+      
+          const ifConExist = await Conversation.findOne({ participants: { $all: [user._id, userId] } });
+          if (ifConExist) return; // Prevent duplicates
+      
+          const conversation = new Conversation({ participants: [user._id, userId] });
+          await conversation.save();
+      
+          const userInitiator = await User.findById(user._id);
+          const userRecipient = await User.findById(userId);
+      
+          userInitiator.conversations.push(conversation._id);
+          userRecipient.conversations.push(conversation._id);
+          await userInitiator.save();
+          await userRecipient.save();
+      
+          const populatedConversation = await conversation.populate('participants', 'username image');
+      
+          // Emit the new conversation to both users by their userId
+          io.to(user._id.toString()).emit('newConversation', { conversation: populatedConversation });
+          io.to(userId).emit('newConversation', { conversation: populatedConversation });
+          
+      
+          socket.emit('getConv', { success: 'Conversation created successfully', conversation: populatedConversation });
+        } catch (error) {
+          socket.emit('error', { message: error.message });
+        }
+      });
+      
+      
 
     socket.on('getAllCon', async ({ userId }) => {
       try {

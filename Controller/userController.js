@@ -56,6 +56,7 @@ try {
     return res.json({ message: "Invalid password" })
   }
   const token = jwt.sign({ userId: user._id }, 'secretKey')  //, { expiresIn: '1h' }
+  res.cookie('userId', user._id.toString(), { httpOnly: true });
   res.json({ token: token, success: "User logged in successfully",user:user })
 } catch (error) {
   res.json({error:error.message})
