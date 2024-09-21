@@ -15,7 +15,7 @@ export const initializeSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    
+
   socket.on('getConn',(data) => {
     const userId = data.userId;
     if (userId) {
@@ -61,42 +61,6 @@ export const initializeSocket = (server) => {
       }
     });
 
-    socket.on('updateMessageStatus', async ({ messageId, userId, conversationId, status }) => {
-      try {
-        const conversation = await Conversation.findById(conversationId);
-        if (!conversation) return socket.emit('alert', { message: 'Invalid Conversation' });
-        const message = conversation.messages.find(msg => String(msg._id) === String(messageId));
-        if (!message || String(message.reciever) !== String(userId)) return;
-
-        message.status = status;
-        conversation.messages.forEach(msg => {
-          if (msg.status === 'delivered' && String(msg.reciever) === String(userId)) {
-            msg.status = 'read';
-          }
-        });
-        await conversation.save();
-
-        socket.emit('successMessage', { messageId: message._id, status: message.status });
-        io.to(conversationId).emit('messageStatusUpdated', { messageId: message._id, status: message.status });
-      } catch (error) {
-        socket.emit('alert', { message: error.message });
-      }
-    });
-
-    socket.on('countDeliveredMessagesForUser', async ({ userId }) => {
-      try {
-        const conversations = await Conversation.find({ participants: userId }).populate('messages');
-        const deliveredCounts = conversations.map(conversation => {
-          const deliveredMessages = conversation.messages.filter(msg => msg.status === "delivered");
-          return { conversationId: conversation._id, deliveredMessagesCount: deliveredMessages.length };
-        });
-        socket.emit('deliveredMessagesCount', { counts: deliveredCounts });
-      } catch (error) {
-        console.error('Error counting delivered messages:', error);
-        socket.emit('errorMessage', { message: error.message });
-      }
-    });
-
     socket.on("joinConversation", (conversationId) => {
       socket.join(conversationId);
       console.log(`Client joined conversation: ${conversationId}`);
@@ -108,7 +72,7 @@ export const initializeSocket = (server) => {
           if (!user || user._id.toString() === userId) return;
       
           const ifConExist = await Conversation.findOne({ participants: { $all: [user._id, userId] } });
-          if (ifConExist) return; // Prevent duplicates
+          if (ifConExist) return socket.emit('alert',{message:"Conversation Exist"})
       
           const conversation = new Conversation({ participants: [user._id, userId] });
           await conversation.save();
@@ -126,7 +90,6 @@ export const initializeSocket = (server) => {
           // Emit the new conversation to both users by their userId
           io.to(user._id.toString()).emit('newConversation', { conversation: populatedConversation });
           io.to(userId).emit('newConversation', { conversation: populatedConversation });
-          
       
           socket.emit('getConv', { success: 'Conversation created successfully', conversation: populatedConversation });
         } catch (error) {
