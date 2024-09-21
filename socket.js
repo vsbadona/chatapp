@@ -77,7 +77,7 @@ export const initializeSocket = (server) => {
     socket.on('createcon', async ({ username, userId }) => {
         try {
           const user = await User.findOne({ username });
-          if (!user || user._id.toString() === userId) return;
+          if (!user || user._id.toString() === userId) return socket.emit('alert',{message:"You Can't create a conversation with yourself"});
       
           const ifConExist = await Conversation.findOne({ participants: { $all: [user._id, userId] } });
           if (ifConExist) return socket.emit('alert',{message:"Conversation Exist"})
