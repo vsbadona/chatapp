@@ -75,24 +75,22 @@ export const initializeSocket = (server) => {
           if (ifConExist) return socket.emit('alert',{message:"Conversation Exist"})
       
           const conversation = new Conversation({ participants: [user._id, userId] });
-          await conversation.save();
+          // await conversation.save();
       
           const userInitiator = await User.findById(user._id);
           const userRecipient = await User.findById(userId);
       
           userInitiator.conversations.push(conversation._id);
           userRecipient.conversations.push(conversation._id);
-          await userInitiator.save();
-          await userRecipient.save();
+          // await userInitiator.save();
+          // await userRecipient.save();
       
           const populatedConversation = await conversation.populate('participants', 'username image');
       
           // Emit the new conversation to both users by their userId
           io.to(user._id.toString()).emit('newConversation', { conversation: populatedConversation });
           io.to(userId).emit('newConversation', { conversation: populatedConversation });
-      
-          socket.emit('getConv', { success: 'Conversation created successfully', conversation: populatedConversation });
-        } catch (error) {
+              } catch (error) {
           socket.emit('error', { message: error.message });
         }
       });
