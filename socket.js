@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import Message from "./Schema/messageSchema.js";
 import Conversation from "./Schema/conversationSchema.js";
 import User from "./Schema/userSchema.js";
+const connectedUsers = new Set();  // Use a set to track connected user IDs
 
 // Initialize Socket
 export const initializeSocket = (server) => {
@@ -16,15 +17,22 @@ export const initializeSocket = (server) => {
 
   io.on("connection", (socket) => {
 
-  socket.on('getConn',(data) => {
-    const userId = data.userId;
-    if (userId) {
-      socket.join(userId);  // Join the user's room
-      console.log(`User with ID: ${userId} has joined their room`);
-    } else {
-      console.log("No userId provided in getConn event");
-    }
-  })
+    socket.on('getConn', (data) => {
+      const { userId } = data;
+  
+      if (userId) {
+        // Check if the user is already connected
+        if (!connectedUsers.has(userId)) {
+          socket.join(userId);  // Join the user's room
+          connectedUsers.add(userId);  // Add user to the set
+          console.log(`User with ID: ${userId} has joined their room`);
+        } else {
+          console.log(`User with ID: ${userId} is already in the room`);
+        }
+      } else {
+        console.log('No userId provided in getConn event');
+      }
+    })
 
     socket.on('sendMessage', async ({ text, userId, conversationId, status }) => {
       try {
@@ -88,6 +96,7 @@ export const initializeSocket = (server) => {
           const populatedConversation = await conversation.populate('participants', 'username image');
       
           // Emit the new conversation to both users by their userId
+          socket.emit('success', { message: "success"});
           io.to(user._id.toString()).emit('newConversation', { conversation: populatedConversation });
           io.to(userId).emit('newConversation', { conversation: populatedConversation });
               } catch (error) {
