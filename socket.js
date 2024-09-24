@@ -74,6 +74,18 @@ export const initializeSocket = (server) => {
       console.log(`Client joined conversation: ${conversationId}`);
     });
 
+    socket.on('typing', ({ room, username }) => {
+      // Broadcast to others in the room that this user is typing
+      socket.to(room).emit('typing', { username });      
+  });
+  
+
+  // Listen for stop typing event
+  socket.on('stopTyping', ({ room, username }) => {
+      // Broadcast to others that the user stopped typing
+      socket.to(room).emit('stopTyping', { username });      
+  });
+
     socket.on('createcon', async ({ username, userId }) => {
         try {
           const user = await User.findOne({ username });

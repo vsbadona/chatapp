@@ -5,7 +5,7 @@ const conversationSchema = new mongoose.Schema({
   messages: [{
     text: String,
     image: String,
-    status: { type: String, default: "delivered" },
+    read: { type: Boolean, default: false },
     reciever: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     conversation: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }
   }]
