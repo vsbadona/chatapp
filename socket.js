@@ -118,17 +118,34 @@ export const initializeSocket = (server) => {
       
       
 
-    socket.on('getAllCon', async ({ userId }) => {
-      try {
-        const user = await User.findById(userId).populate({
-          path: 'conversations',
-          populate: { path: 'participants', select: 'username image' }
-        });
-        socket.emit('getAllCon', { conversations: user.conversations });
-      } catch (error) {
-        socket.emit('alert', { message: error.message });
-      }
-    });
+      socket.on('getAllCon', async ({ userId }) => {
+        try {
+          // Fetch user with populated conversations and participants
+          const user = await User.findById(userId).populate({
+            path: 'conversations',
+            populate: { path: 'participants', select: 'username image' }
+          });
+      
+          // Process the conversations to filter participants
+          const conversations = user.conversations.map(conversation => {
+            // Filter out the participant whose ID matches the userId
+            const filteredParticipants = conversation.participants.filter(participant => participant._id.toString() !== userId);
+      
+            return {
+              ...conversation.toObject(), // Ensure it's a plain object for modifications
+              participants: filteredParticipants // Update the participants array with filtered ones
+            };
+          });
+      
+          // Emit the modified conversations with filtered participants
+          socket.emit('getAllCon', { conversations });
+      
+        } catch (error) {
+          // Emit an error message in case of failure
+          socket.emit('alert', { message: error.message });
+        }
+      });
+      
 
     socket.on("disconnect", () => {
       console.log("Client disconnected");

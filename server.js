@@ -21,6 +21,7 @@ app.use('/', userRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Connect to MongoDB
 mongoose.connect("mongodb+srv://Vishal123:Vishal123@cluster0.hwzrbs5.mongodb.net/mern-chat-app?retryWrites=true&w=majority&appName=Cluster0");
+console.log(path.join(__dirname, 'uploads'));
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
