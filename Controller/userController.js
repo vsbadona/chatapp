@@ -33,12 +33,18 @@ export const registerUser = async (req, res) => {
 
 export const findUser = async(req,res) => {
   const token = req.params.token;
-  const decoded = jwt.verify(token, 'secretKey');
+  if(!token) return res.json({alert:"Invalid Token"})
+  try {
+    const decoded = jwt.verify(token, 'secretKey');
   const userId = decoded.userId;
   if (!userId) return res.json({ message: 'Invalid Token' });
   const findUser = await User.findById(userId);
   if (!findUser) return res.json({ message: 'User not found'})
     res.json(findUser);
+  } catch (error) {
+    console.log(error.message);
+    
+  }
 }
 
 export const loginUser = async (req, res) => {
