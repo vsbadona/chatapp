@@ -49,6 +49,7 @@ export const findUser = async(req,res) => {
 
 export const loginUser = async (req, res) => {
 try {
+  
   const { username, password } = req.query;
   if(!username || !password){
     res.json({message:"Provide all details"})
@@ -88,9 +89,10 @@ export const updateProfile = async (req, res) => {
 
        if(username == findUser.username){
            // Update user fields
-          
-             findUser.username = username;
-           findUser.image = image;
+           
+           if(image){
+            findUser.image = image;
+           }
  
            // Save updated user document
            const updatedUser = await findUser.save();
@@ -103,7 +105,9 @@ export const updateProfile = async (req, res) => {
           res.json({message:"Username Exists"})
         }else{
           findUser.username = username;
-           findUser.image = image;
+          if(image){
+            findUser.image = image;
+           }
  
            // Save updated user document
            const updatedUser = await findUser.save();
